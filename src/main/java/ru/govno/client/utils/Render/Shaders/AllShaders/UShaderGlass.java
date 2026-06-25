@@ -1,0 +1,26 @@
+package ru.govno.client.utils.Render.Shaders.AllShaders;
+
+import ru.govno.client.utils.Render.Shaders.StringShader;
+
+public class UShaderGlass extends StringShader {
+   public UShaderGlass() {
+      super(
+         "\n\t\t\t\t#version 150\n\n\t\t\t\tuniform sampler2D inputSampler;\n\t\t\t\tuniform vec2 inputResolution;\n\t\t\t\tuniform float blurAmount;\n\t\t\t\tuniform float reflect;\n\t\t\t\tuniform float noiseValue;\n\n\t\t\t\tin vec2 vertexPos;\n\t\t\t\tuniform vec4 vertexColor;\n\n\t\t\t\tout vec4 fragColor;\n\n\t\t\t\t#define TAU 6.28318530718\n\n\t\t\t\t//\tSimplex 3D Noise\n\t\t\t\t//\tby Ian McEwan, Stefan Gustavson (https://github.com/stegu/webgl-noise)\n\t\t\t\t//\n\t\t\t\tvec4 permute(vec4 x){ return mod(((x*34.0)+1.0)*x, 289.0); }\n\t\t\t\tvec4 taylorInvSqrt(vec4 r){ return 1.79284291400159 - 0.85373472095314 * r; }\n\n\t\t\t\tfloat snoise(vec3 v){\n\t\t\t\t    const vec2  C = vec2(1.0/6.0, 1.0/3.0);\n\t\t\t\t    const vec4  D = vec4(0.0, 0.5, 1.0, 2.0);\n\n\t\t\t\t    // First corner\n\t\t\t\t    vec3 i  = floor(v + dot(v, C.yyy));\n\t\t\t\t    vec3 x0 =   v - i + dot(i, C.xxx);\n\n\t\t\t\t    // Other corners\n\t\t\t\t    vec3 g = step(x0.yzx, x0.xyz);\n\t\t\t\t    vec3 l = 1.0 - g;\n\t\t\t\t    vec3 i1 = min(g.xyz, l.zxy);\n\t\t\t\t    vec3 i2 = max(g.xyz, l.zxy);\n\n\t\t\t\t    //  x0 = x0 - 0. + 0.0 * C\n\t\t\t\t    vec3 x1 = x0 - i1 + 1.0 * C.xxx;\n\t\t\t\t    vec3 x2 = x0 - i2 + 2.0 * C.xxx;\n\t\t\t\t    vec3 x3 = x0 - 1. + 3.0 * C.xxx;\n\n\t\t\t\t    // Permutations\n\t\t\t\t    i = mod(i, 289.0);\n\t\t\t\t    vec4 p = permute(permute(permute(\n\t\t\t\t    i.z + vec4(0.0, i1.z, i2.z, 1.0))\n\t\t\t\t    + i.y + vec4(0.0, i1.y, i2.y, 1.0))\n\t\t\t\t    + i.x + vec4(0.0, i1.x, i2.x, 1.0));\n\n\t\t\t\t    // Gradients\n\t\t\t\t    // ( N*N points uniformly over a square, mapped onto an octahedron.)\n\t\t\t\t    float n_ = 1.0/7.0;// N=7\n\t\t\t\t    vec3  ns = n_ * D.wyz - D.xzx;\n\n\t\t\t\t    vec4 j = p - 49.0 * floor(p * ns.z *ns.z);//  mod(p,N*N)\n\n\t\t\t\t    vec4 x_ = floor(j * ns.z);\n\t\t\t\t    vec4 y_ = floor(j - 7.0 * x_);// mod(j,N)\n\n\t\t\t\t    vec4 x = x_ *ns.x + ns.yyyy;\n\t\t\t\t    vec4 y = y_ *ns.x + ns.yyyy;\n\t\t\t\t    vec4 h = 1.0 - abs(x) - abs(y);\n\n\t\t\t\t    vec4 b0 = vec4(x.xy, y.xy);\n\t\t\t\t    vec4 b1 = vec4(x.zw, y.zw);\n\n\t\t\t\t    vec4 s0 = floor(b0)*2.0 + 1.0;\n\t\t\t\t    vec4 s1 = floor(b1)*2.0 + 1.0;\n\t\t\t\t    vec4 sh = -step(h, vec4(0.0));\n\n\t\t\t\t    vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy;\n\t\t\t\t    vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;\n\n\t\t\t\t    vec3 p0 = vec3(a0.xy, h.x);\n\t\t\t\t    vec3 p1 = vec3(a0.zw, h.y);\n\t\t\t\t    vec3 p2 = vec3(a1.xy, h.z);\n\t\t\t\t    vec3 p3 = vec3(a1.zw, h.w);\n\n\t\t\t\t    //Normalise gradients\n\t\t\t\t    vec4 norm = taylorInvSqrt(vec4(dot(p0, p0), dot(p1, p1), dot(p2, p2), dot(p3, p3)));\n\t\t\t\t    p0 *= norm.x;\n\t\t\t\t    p1 *= norm.y;\n\t\t\t\t    p2 *= norm.z;\n\t\t\t\t    p3 *= norm.w;\n\n\t\t\t\t    // Mix final noise value\n\t\t\t\t    vec4 m = max(0.6 - vec4(dot(x0, x0), dot(x1, x1), dot(x2, x2), dot(x3, x3)), 0.0);\n\t\t\t\t    m = m * m;\n\t\t\t\t    return 42.0 * dot(m*m, vec4(dot(p0, x0), dot(p1, x1),\n\t\t\t\t    dot(p2, x2), dot(p3, x3)));\n\t\t\t\t}\n\n\t\t\t\t// Blur Function\n\t\t\t\tvec4 blur(vec2 uv) {\n\t\t\t\t    vec4 pixelColor = texture(inputSampler, uv);\n\n\t\t\t\t    vec2 radius = vec2(blurAmount) / inputResolution;\n\n\t\t\t\t    float blurQuality = 4.0;\n\t\t\t\t    float blurDirections = 16.0;\n\n\t\t\t\t    for (float d = 0.0; d < TAU; d += TAU / blurDirections) {\n\t\t\t\t        for (float i = 1.0 / 4.0; i <= 1.0; i += 1.0 / blurQuality) {\n\t\t\t\t            pixelColor += texture(inputSampler, uv + vec2(cos(d), sin(d)) * radius * i);\n\t\t\t\t        }\n\t\t\t\t    }\n\n\t\t\t\t    // Normalize\n\t\t\t\t    pixelColor /= blurQuality * blurDirections;\n\t\t\t\t    return pixelColor;\n\t\t\t\t}\n\n\t\t\t\tvoid main() {\n\t\t\t\t    vec2 uv = gl_FragCoord.xy / inputResolution.xy;\n\t\t\t\t    vec2 reflectedUV = vec2(uv.x, 1.0 - uv.y);\n\n\t\t\t\t    float time = mod(gl_FragCoord.x + gl_FragCoord.y, 1000.0) * 0.001;\n\t\t\t\t    float noise = snoise(vec3(reflectedUV * reflect, 1));\n\n\t\t\t\t    // sosal\n\t\t\t\t    vec2 noisyUV = reflectedUV + vec2(noise * noiseValue, noise * noiseValue);\n\n\t\t\t\t    vec4 reflectedColor = texture(inputSampler, noisyUV);\n\n\t\t\t\t   vec4 blurredColor = blur(noisyUV);\n\n\t\t\t\t    fragColor = vec4(blurredColor.rgb, vertexColor.a);\n\t\t\t\t}\n\n\n"
+      );
+   }
+
+   public void prepare3d(Runnable renderers, float noisePC01, int color) {
+      mc.getFramebuffer().bindFramebufferTexture();
+      this.attach();
+      this.setUniformI("inputSampler", new int[]{0});
+      this.setUniformF("inputResolution", new float[]{(float)mc.getFramebuffer().framebufferWidth, (float)mc.getFramebuffer().framebufferHeight});
+      this.setUniformF("blurAmount", new float[]{0.0F});
+      this.setUniformF("reflect", new float[]{0.0F});
+      this.setUniformF("noiseValue", new float[]{0.01F * noisePC01});
+      this.setUniformColor("vertexColor", color);
+      renderers.run();
+      mc.getFramebuffer().framebufferRender(mc.getFramebuffer().framebufferWidth, mc.getFramebuffer().framebufferHeight);
+      this.detach();
+      mc.getFramebuffer().unbindFramebufferTexture();
+   }
+}

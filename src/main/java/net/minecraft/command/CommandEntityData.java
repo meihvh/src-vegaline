@@ -1,0 +1,63 @@
+package net.minecraft.command;
+
+import java.util.UUID;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.nbt.JsonToNBT;
+import net.minecraft.nbt.NBTException;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.server.MinecraftServer;
+
+public class CommandEntityData extends CommandBase {
+   @Override
+   public String getCommandName() {
+      return "entitydata";
+   }
+
+   @Override
+   public int getRequiredPermissionLevel() {
+      return 2;
+   }
+
+   @Override
+   public String getCommandUsage(ICommandSender sender) {
+      return "commands.entitydata.usage";
+   }
+
+   @Override
+   public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
+      if (args.length < 2) {
+         throw new WrongUsageException("commands.entitydata.usage");
+      } else {
+         Entity entity = getEntity(server, sender, args[0]);
+         if (entity instanceof EntityPlayer) {
+            throw new CommandException("commands.entitydata.noPlayers", entity.getDisplayName());
+         } else {
+            NBTTagCompound nbttagcompound = entityToNBT(entity);
+            NBTTagCompound nbttagcompound1 = nbttagcompound.copy();
+
+            NBTTagCompound nbttagcompound2;
+            try {
+               nbttagcompound2 = JsonToNBT.getTagFromJson(buildString(args, 1));
+            } catch (NBTException var9) {
+               throw new CommandException("commands.entitydata.tagError", var9.getMessage());
+            }
+
+            UUID uuid = entity.getUniqueID();
+            nbttagcompound.merge(nbttagcompound2);
+            entity.setUniqueId(uuid);
+            if (nbttagcompound.equals(nbttagcompound1)) {
+               throw new CommandException("commands.entitydata.failed", nbttagcompound.toString());
+            } else {
+               entity.readFromNBT(nbttagcompound);
+               notifyCommandListener(sender, this, "commands.entitydata.success", new Object[]{nbttagcompound.toString()});
+            }
+         }
+      }
+   }
+
+   @Override
+   public boolean isUsernameIndex(String[] args, int index) {
+      return index == 0;
+   }
+}
